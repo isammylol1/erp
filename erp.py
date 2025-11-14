@@ -1,6 +1,5 @@
 import sqlite3
 import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import datetime
 
 def inicializar_banco():
@@ -211,4 +210,3 @@ if __name__ == "__main__":
             break
         else:
             print("Opção inválida! Digite 1, 2, 3, 4, 5 ou 6.")
-

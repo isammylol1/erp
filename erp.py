@@ -1,11 +1,8 @@
 import sqlite3
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
-import os
 
-# Inicialização do banco de dados
 def inicializar_banco():
     conn = sqlite3.connect('estoque.db')
     cursor = conn.cursor()
@@ -129,94 +126,54 @@ def carregar_dados_pandas():
     return df
 
 def mostrar_dashboard():
-    df = carregar_dados_pandas()
-    
-    if df.empty:
-        print("Não há dados para mostrar no dashboard!")
-        return
+    conn = sqlite3.connect('estoque.db')
+    cursor = conn.cursor()
     
     plt.style.use('default')
-    sns.set_palette("husl")
-    
     fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-    fig.suptitle('DASHBOARD DE ESTOQUE - ANÁLISE COMPLETA', fontsize=16, fontweight='bold')
+    fig.suptitle('DASHBOARD DE ESTOQUE', fontsize=16, fontweight='bold')
+   
+    cursor.execute("SELECT categoria, COUNT(*) FROM produtos GROUP BY categoria")
+    cats, qtds = zip(*cursor.fetchall())
+    axes[0, 0].pie(qtds, labels=cats, autopct='%1.1f%%')
+    axes[0, 0].set_title('Distribuição por Categoria')
+
+    cursor.execute("SELECT nome, quantidade FROM produtos ORDER BY quantidade DESC LIMIT 10")
+    nomes, qtds = zip(*cursor.fetchall())
+    axes[0, 1].bar(nomes, qtds)
+    axes[0, 1].set_title('Top 10 em Estoque')
+    axes[0, 1].tick_params(axis='x', rotation=45)
+
+    cursor.execute("SELECT categoria, SUM(preco * quantidade) FROM produtos GROUP BY categoria")
+    cats, vals = zip(*cursor.fetchall())
+    axes[1, 0].bar(cats, vals)
+    axes[1, 0].set_title('Valor por Categoria (R$)')
+    axes[1, 0].tick_params(axis='x', rotation=45)
     
-    if not df.empty:
-        categorias_count = df['categoria'].value_counts()
-        axes[0, 0].pie(categorias_count.values, labels=categorias_count.index, autopct='%1.1f%%', startangle=90)
-        axes[0, 0].set_title('Distribuição por Categoria')
-        
-    if not df.empty:
-        produtos_estoque = df.nlargest(10, 'quantidade')[['nome', 'quantidade']]
-        axes[0, 1].bar(produtos_estoque['nome'], produtos_estoque['quantidade'])
-        axes[0, 1].set_title('Top 10 Produtos em Estoque')
-        axes[0, 1].tick_params(axis='x', rotation=45)
-
-    if not df.empty:
-        df['valor_total'] = df['preco'] * df['quantidade']
-        valor_por_categoria = df.groupby('categoria')['valor_total'].sum()
-        axes[1, 0].bar(valor_por_categoria.index, valor_por_categoria.values)
-        axes[1, 0].set_title('Valor Total por Categoria (R$)')
-        axes[1, 0].tick_params(axis='x', rotation=45)
-
-    if not df.empty:
-        estoque_baixo = df[df['quantidade'] < 5][['nome', 'quantidade']]
-        if not estoque_baixo.empty:
-            axes[1, 1].bar(estoque_baixo['nome'], estoque_baixo['quantidade'], color='red')
-            axes[1, 1].set_title('Produtos com Estoque Baixo (< 5 unidades)')
-            axes[1, 1].tick_params(axis='x', rotation=45)
-        else:
-            axes[1, 1].text(0.5, 0.5, 'Todos os produtos\ncom estoque adequado', 
-                           ha='center', va='center', fontsize=12, transform=axes[1, 1].transAxes)
-            axes[1, 1].set_title('Alertas de Estoque')
+    cursor.execute("SELECT nome, quantidade FROM produtos WHERE quantidade < 5")
+    estoque_baixo = cursor.fetchall()
+    if estoque_baixo:
+        nomes, qtds = zip(*estoque_baixo)
+        axes[1, 1].bar(nomes, qtds, color='red')
+        axes[1, 1].tick_params(axis='x', rotation=45)
+    else:
+        axes[1, 1].text(0.5, 0.5, 'Estoque OK', ha='center', va='center', fontsize=14)
+    axes[1, 1].set_title('Estoque Baixo (<5)')
     
     plt.tight_layout()
     plt.show()
 
-    print("\n" + "="*60)
-    print("           ESTATÍSTICAS DETALHADAS DO ESTOQUE")
-    print("="*60)
+    cursor.execute("SELECT COUNT(*), COUNT(DISTINCT categoria), SUM(preco * quantidade) FROM produtos")
+    total_prod, total_cat, valor_total = cursor.fetchone()
     
-    print(f"\nRESUMO GERAL:")
-    print(f"Total de produtos: {len(df)}")
-    print(f"Total de categorias: {df['categoria'].nunique()}")
-    print(f"Valor total em estoque: R$ {(df['preco'] * df['quantidade']).sum():.2f}")
-    print(f"Produtos com estoque baixo: {len(df[df['quantidade'] < 5])}")
+    cursor.execute("SELECT COUNT(*) FROM produtos WHERE quantidade < 5")
+    estoque_baixo_count = cursor.fetchone()[0]
     
-    print(f"\nESTATÍSTICAS POR CATEGORIA:")
-    stats_categoria = df.groupby('categoria').agg({
-        'id': 'count',
-        'quantidade': 'sum',
-        'preco': ['mean', 'sum']
-    }).round(2)
+    print(f"\nRESUMO:")
+    print(f"Produtos: {total_prod} | Categorias: {total_cat}")
+    print(f"Valor total: R$ {valor_total:.2f} | Estoque baixo: {estoque_baixo_count}")
     
-    print(stats_categoria)
-
-def exportar_para_excel():
-    df = carregar_dados_pandas()
-    
-    if df.empty:
-        print("Não há dados para exportar!")
-        return
-    
-    filename = f"estoque_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    
-    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Produtos', index=False)
-        
-        resumo = pd.DataFrame({
-            'Metrica': ['Total Produtos', 'Total Categorias', 'Valor Total Estoque', 'Produtos Estoque Baixo'],
-            'Valor': [
-                len(df),
-                df['categoria'].nunique(),
-                (df['preco'] * df['quantidade']).sum(),
-                len(df[df['quantidade'] < 5])
-            ]
-        })
-        resumo.to_excel(writer, sheet_name='Resumo', index=False)
-    
-    print(f"Dados exportados para {filename}")
-
+    conn.close()
 def mostrar_menu():
     """Função que mostra o menu principal atualizado"""
     print("\n" + "="*50)
@@ -254,3 +211,4 @@ if __name__ == "__main__":
             break
         else:
             print("Opção inválida! Digite 1, 2, 3, 4, 5 ou 6.")
+

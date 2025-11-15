@@ -88,42 +88,47 @@ def excluir_produto():
 
 def ver_produtos():
     conn = sqlite3.connect('estoque.db')
+    cursor = conn.cursor()
     
-    df = pd.read_sql_query("SELECT * FROM produtos", conn)
-    conn.close()
+    cursor.execute("SELECT * FROM produtos")
+    produtos = cursor.fetchall()
     
-    if df.empty:
+    if not produtos:
         print("Não há produtos cadastrados!")
+        conn.close()
         return
     
     print("\n--- LISTA DE PRODUTOS ---")
     print("-" * 80)
     
-    
-    df_display = df.copy()
-    df_display['preco'] = df_display['preco'].apply(lambda x: f"R$ {x:.2f}")
-    df_display['estoque_status'] = df_display['quantidade'].apply(
-        lambda x: '⭐ BAIXO' if x < 5 else '✓ OK'
-    )
-    
-    print(df_display[['id', 'nome', 'categoria', 'preco', 'quantidade', 'estoque_status']].to_string(index=False))
+    print(f"{'id':<4} {'nome':<20} {'categoria':<15} {'preco':<10} {'quantidade':<12} {'estoque_status'}")
     print("-" * 80)
     
-    total_produtos = len(df)
-    produtos_baixo_estoque = len(df[df['quantidade'] < 5])
-    valor_total_estoque = (df['preco'] * df['quantidade']).sum()
+    total_produtos = 0
+    produtos_baixo_estoque = 0
+    valor_total_estoque = 0.0
+    
+    for produto in produtos:
+        id_prod, nome, categoria, preco, quantidade, data_cadastro = produto
+        preco_formatado = f"R$ {preco:.2f}"
+        estoque_status = '⭐ BAIXO' if quantidade < 5 else '✓ OK'
+        
+        print(f"{id_prod:<4} {nome:<20} {categoria:<15} {preco_formatado:<10} {quantidade:<12} {estoque_status}")
+        
+        total_produtos += 1
+        if quantidade < 5:
+            produtos_baixo_estoque += 1
+        valor_total_estoque += preco * quantidade
+    
+    print("-" * 80)
     
     print(f"\n RESUMO:")
     print(f"Total de produtos: {total_produtos}")
     print(f"Produtos com estoque baixo: {produtos_baixo_estoque}")
     print(f"Valor total em estoque: R$ {valor_total_estoque:.2f}")
-
-def carregar_dados_pandas():
-    conn = sqlite3.connect('estoque.db')
-    df = pd.read_sql_query("SELECT * FROM produtos", conn)
+    
     conn.close()
-    return df
-
+    
 def mostrar_dashboard():
     conn = sqlite3.connect('estoque.db')
     cursor = conn.cursor()
@@ -174,7 +179,6 @@ def mostrar_dashboard():
     
     conn.close()
 def mostrar_menu():
-    """Função que mostra o menu principal atualizado"""
     print("\n" + "="*50)
     print("        SISTEMA DE ESTOQUE ERP")
     print("="*50)
@@ -182,18 +186,17 @@ def mostrar_menu():
     print("2. Excluir produto") 
     print("3. Ver todos os produtos")
     print("4. Dashboard e Estatísticas")
-    print("5. Exportar para Excel")
     print("6. Sair do programa")
     print("="*50)
 
 if __name__ == "__main__":
-    print("Bem-vindo ao Sistema de Estoque Avançado!")
+    print("Bem-vindo ao Sistema de Estoque ERP.")
     inicializar_banco()
 
     while True:
         mostrar_menu()
         
-        opcao = input("\nEscolha uma opção (1-6): ")
+        opcao = input("\nEscolha uma opção (1-5): ")
         
         if opcao == "1":
             cadastrar_produto()
@@ -204,9 +207,7 @@ if __name__ == "__main__":
         elif opcao == "4":
             mostrar_dashboard()
         elif opcao == "5":
-            exportar_para_excel()
-        elif opcao == "6":
             print("Obrigado por usar o sistema.")
             break
         else:
-            print("Opção inválida! Digite 1, 2, 3, 4, 5 ou 6.")
+            print("Opção inválida! Digite 1, 2, 3, 4 ou 5.")

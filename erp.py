@@ -45,7 +45,6 @@ def cadastrar_produto():
     conn.commit()
     produto_id = cursor.lastrowid
     conn.close()
-    
     print(f"Produto '{nome}' cadastrado com sucesso! ID: {produto_id}")
 
 def excluir_produto():
@@ -111,7 +110,7 @@ def ver_produtos():
     for produto in produtos:
         id_prod, nome, categoria, preco, quantidade, data_cadastro = produto
         preco_formatado = f"R$ {preco:.2f}"
-        estoque_status = '⭐ BAIXO' if quantidade < 5 else '✓ OK'
+        estoque_status = 'BAIXO' if quantidade < 5 else '✓ OK'
         
         print(f"{id_prod:<4} {nome:<20} {categoria:<15} {preco_formatado:<10} {quantidade:<12} {estoque_status}")
         
@@ -126,7 +125,6 @@ def ver_produtos():
     print(f"Total de produtos: {total_produtos}")
     print(f"Produtos com estoque baixo: {produtos_baixo_estoque}")
     print(f"Valor total em estoque: R$ {valor_total_estoque:.2f}")
-    
     conn.close()
     
 def mostrar_dashboard():
@@ -211,3 +209,4 @@ if __name__ == "__main__":
             break
         else:
             print("Opção inválida! Digite 1, 2, 3, 4 ou 5.")
+

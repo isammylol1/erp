@@ -209,4 +209,3 @@ if __name__ == "__main__":
             break
         else:
             print("Opção inválida! Digite 1, 2, 3, 4 ou 5.")
-
